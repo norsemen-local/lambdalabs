@@ -1,0 +1,410 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "LambdaLabs SecureLife Insurance Portal - Educational AWS Security Testing Framework with Professional Business Interface"
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: "lambda-testing-toolkit"
+    Description: "Name prefix for all resources"
+    
+  AmazonLinuxAMI:
+    Type: AWS::EC2::Image::Id
+    Description: "Amazon Linux 2 AMI ID for the region (will be auto-detected)"
+    
+  SSHKeyName:
+    Type: String
+    Description: "Name of the EC2 Key Pair for SSH access"
+    
+  SSHPublicKey:
+    Type: String
+    Description: "SSH Public Key content for EC2 access"
+    
+  AllowedSourceIP:
+    Type: String
+    Default: "0.0.0.0/0"
+    Description: "IP range allowed to access the instance (use your IP/32 for better security)"
+    
+  EnvironmentTag:
+    Type: String
+    Default: "democloud"
+    AllowedValues: 
+      - "democloud"
+      - "testing" 
+      - "development"
+      - "lab"
+    Description: "Environment tag for resource identification"
+
+Resources:
+
+  # 1. IAM Group for Dev Team
+  DevTeamIAMGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: !Sub "${ProjectName}-DevTeamIAMGroup"
+
+  # 2. IAM Role for Dev Team (Lambda Execution Role)
+  DevTeamGroupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-DevTeam-Group-Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DevTeamLambdaPolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                  - s3:ListAllMyBuckets
+                  - s3:ListBucket
+                  - s3:ListBucketVersions
+                  - s3:ListBucketMultipartUploads
+                  - s3:GetObject
+                  - s3:GetObjectVersion
+                  - s3:GetBucketLocation
+                  - s3:GetBucketAcl
+                  - s3:GetBucketPolicy
+                  - s3:GetBucketCORS
+                  - s3:GetBucketLogging
+                  - s3:GetBucketVersioning
+                  - s3:GetBucketWebsite
+                  - s3:GetLifecycleConfiguration
+                  - s3:GetObjectTagging
+                  - s3:GetObjectAcl
+                  - s3:GetBucketEncryption
+                  - s3:GetBucketNotification
+                  - iam:ListRoles
+                  - iam:ListUsers
+                  - iam:GetRole
+                  - iam:GetUser
+                  - ec2:DescribeInstances
+                  - ec2:StartInstances
+                  - ec2:StopInstances
+                  - ec2:RebootInstances
+                Resource: "*"
+
+  # 3. IAM User for Developer
+  DevTeamDeveloper:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Sub "${ProjectName}-DevTeamDeveloper"
+
+  # 4. Add Developer to IAM Group
+  DevTeamUserGroupMembership:
+    Type: AWS::IAM::UserToGroupAddition
+    Properties:
+      GroupName: !Ref DevTeamIAMGroup
+      Users:
+        - !Ref DevTeamDeveloper
+
+  # 5. IAM Role for EC2
+  DevTeamEC2Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ProjectName}-DevTeam-EC2-Role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: DevTeam_EC2_Policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - lambda:CreateFunction
+                  - lambda:InvokeFunction
+                  - lambda:DeleteFunction
+                  - s3:GetObject
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: "*"
+              - Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt DevTeamGroupRole.Arn  # ✅ Restrict to only DevTeamGroupRole
+              - Effect: Allow
+                Action:
+                  - sts:GetCallerIdentity  # ✅ Added for identity verification
+                  - iam:GetUser           # ✅ Added to fix GetUser error
+                  - iam:GetRole           # ✅ Added for role information
+                  - iam:ListRoles         # ✅ Added for role enumeration
+                Resource: "*"
+
+  # 6. IAM Instance Profile
+  DevTeamInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: !Sub "${ProjectName}-DevTeam-InstanceProfile"
+      Roles:
+        - !Ref DevTeamEC2Role
+
+  # 7. Security Group for EC2 Instance
+  DevTeamSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub "${ProjectName}-DevTeam-SecurityGroup"
+      GroupDescription: "Allow traffic for LambdaLabs Insurance Portal on ports 8080, 5005, and SSH"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 8080
+          ToPort: 8080
+          CidrIp: !Ref AllowedSourceIP
+          Description: "SecureLife Insurance Portal (Struts2 S2-067)"
+        - IpProtocol: tcp
+          FromPort: 5005
+          ToPort: 5005
+          CidrIp: !Ref AllowedSourceIP
+          Description: "Debug Port"
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedSourceIP
+          Description: "SSH Access"
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-security-group"
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  # 8. EC2 Key Pair
+  DevTeamKeyPair:
+    Type: AWS::EC2::KeyPair
+    Properties:
+      KeyName: !Ref SSHKeyName
+      PublicKeyMaterial: !Ref SSHPublicKey
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-keypair"
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+
+  # 9. EC2 Instance
+  DevTeamEC2Instance:
+    Type: AWS::EC2::Instance
+    DependsOn: DevTeamInstanceProfile
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub "${ProjectName}-instance"
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: Owner
+          Value: "dev-team"
+        - Key: Purpose
+          Value: "security-testing"
+      InstanceType: t2.micro
+      KeyName: !Ref DevTeamKeyPair
+      ImageId: !Ref AmazonLinuxAMI
+      SecurityGroups:
+        - !Ref DevTeamSecurityGroup
+      IamInstanceProfile: !Ref DevTeamInstanceProfile
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          # Update system
+          yum update -y
+          
+          # Install Docker
+          yum install -y docker
+          service docker start
+          usermod -aG docker ec2-user
+          chkconfig docker on
+          
+          # Install AWS CLI v2
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+          unzip awscliv2.zip
+          ./aws/install
+          
+          # Start LambdaLabs SecureLife Insurance Portal
+          # Enhanced Struts2 application with professional insurance theme
+          docker run -d --restart unless-stopped -p 8080:8080 -p 5005:5005 \
+            --name lambdalabs-insurance-portal \
+            mickeyatl/lambdalabs-struts2-insurance:latest
+          
+          # Wait for portal initialization and verify
+          echo "Waiting for LambdaLabs Insurance Portal to initialize..." >> /var/log/user-data.log
+          sleep 60
+          
+          # Verify portal is ready
+          if docker logs lambdalabs-insurance-portal 2>&1 | grep -q "Insurance theme successfully injected"; then
+            echo "✅ LambdaLabs SecureLife Insurance Portal is ready" >> /var/log/user-data.log
+            echo "🛡️ Educational security testing environment active" >> /var/log/user-data.log
+            echo "🎯 Portal accessible at: http://$(curl -s http://169.254.169.254/latest/meta-data/public-ipv4):8080/" >> /var/log/user-data.log
+          else
+            echo "⚠️ Portal initialization may still be in progress" >> /var/log/user-data.log
+          fi
+          
+          # Create initialization completion marker
+          echo "LambdaLabs instance initialization completed at $(date)" > /var/log/user-data.log
+          echo "Insurance Portal Status: $(docker ps --filter name=lambdalabs-insurance-portal --format 'table {{.Names}}\t{{.Status}}')" >> /var/log/user-data.log
+
+  # 10. S3 Buckets for testing data (aligned with project naming)
+  DataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-data-${AWS::AccountId}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: false
+        BlockPublicPolicy: false
+        IgnorePublicAcls: false
+        RestrictPublicBuckets: false
+      Tags:
+        - Key: DataClassification
+          Value: Confidential
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: BucketType
+          Value: "primary-data"
+
+  LogsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-logs-${AWS::AccountId}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: DataClassification
+          Value: Internal
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: BucketType
+          Value: "logs-audit"
+
+  ConfigBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-config-${AWS::AccountId}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      Tags:
+        - Key: DataClassification
+          Value: TopSecret
+        - Key: Project
+          Value: !Ref ProjectName
+        - Key: Environment
+          Value: !Ref EnvironmentTag
+        - Key: BucketType
+          Value: "config-secrets"
+
+Outputs:
+  ProjectName:
+    Description: "Project name used for resource naming"
+    Value: !Ref ProjectName
+    Export:
+      Name: !Sub "${AWS::StackName}-ProjectName"
+      
+  DevTeamIAMGroup:
+    Description: "IAM Group for Dev Team"
+    Value: !Ref DevTeamIAMGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-IAMGroup"
+
+  DevTeamIAMUser:
+    Description: "IAM User for Dev Team Developer"
+    Value: !Ref DevTeamDeveloper
+    Export:
+      Name: !Sub "${AWS::StackName}-IAMUser"
+
+  DevTeamEC2Role:
+    Description: "IAM Role for Dev Team EC2 instance"
+    Value: !Ref DevTeamEC2Role
+    Export:
+      Name: !Sub "${AWS::StackName}-EC2Role"
+      
+  DevTeamGroupRole:
+    Description: "IAM Role for Lambda execution"
+    Value: !Ref DevTeamGroupRole
+    Export:
+      Name: !Sub "${AWS::StackName}-LambdaRole"
+
+  DevTeamEC2PublicDNS:
+    Description: "Public DNS of the Dev Team EC2 instance"
+    Value: !GetAtt DevTeamEC2Instance.PublicDnsName
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicDNS"
+      
+  DevTeamEC2PublicIP:
+    Description: "Public IP of the Dev Team EC2 instance"
+    Value: !GetAtt DevTeamEC2Instance.PublicIp
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicIP"
+      
+  SSHCommand:
+    Description: "SSH command to connect to the instance"
+    Value: !Sub "ssh -i ${SSHKeyName}.pem ec2-user@${DevTeamEC2Instance.PublicDnsName}"
+    Export:
+      Name: !Sub "${AWS::StackName}-SSHCommand"
+      
+  DataBucketName:
+    Description: "Name of the primary data bucket"
+    Value: !Ref DataBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-DataBucket"
+      
+  LogsBucketName:
+    Description: "Name of the logs bucket"
+    Value: !Ref LogsBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-LogsBucket"
+      
+  ConfigBucketName:
+    Description: "Name of the config/secrets bucket"
+    Value: !Ref ConfigBucket
+    Export:
+      Name: !Sub "${AWS::StackName}-ConfigBucket"
+      
+  # New Insurance Portal Specific Outputs
+  InsurancePortalURL:
+    Description: "🛡️ SecureLife Insurance Portal - Access the professional portal interface"
+    Value: !Sub "http://${DevTeamEC2Instance.PublicIp}:8080/"
+    Export:
+      Name: !Sub "${AWS::StackName}-InsurancePortalURL"
+      
+  InsurancePortalDNS:
+    Description: "🛡️ SecureLife Insurance Portal - DNS-based access URL"
+    Value: !Sub "http://${DevTeamEC2Instance.PublicDnsName}:8080/"
+    Export:
+      Name: !Sub "${AWS::StackName}-InsurancePortalDNS"
+      
+  SecurityTestingInfo:
+    Description: "🎯 Educational Security Testing - Struts2 S2-067 file upload vulnerability available for learning"
+    Value: "Portal includes Struts2 S2-067 vulnerability for educational security testing. Use responsibly in controlled environments."
+    Export:
+      Name: !Sub "${AWS::StackName}-SecurityTestingInfo"
+      
+  DockerImageInfo:
+    Description: "🐳 Docker Image - Public image used for the insurance portal"
+    Value: "mickeyatl/lambdalabs-struts2-insurance:latest"
+    Export:
+      Name: !Sub "${AWS::StackName}-DockerImageInfo"

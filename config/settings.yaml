@@ -1,0 +1,39 @@
+# AWS Lambda Testing Toolkit Configuration
+project:
+  name: lambda-testing-toolkit
+  version: "2.0"
+  environment: testing
+  
+deployment:
+  default_template: templates/lambdalabs_infrastructure.yaml
+  auto_terminate_hours: 4
+  default_region: us-east-1
+  
+security:
+  enable_ip_restriction: true
+  require_confirmations: true
+  enable_dry_run: false
+  
+logging:
+  enable_file_logging: true
+  log_level: INFO
+  log_directory: logs/
+
+# Phase 3 Security Features
+network_security:
+  enable_dynamic_ip: true
+  ip_detection_services:
+    - "https://api.ipify.org"
+    - "https://checkip.amazonaws.com"
+    - "https://ipinfo.io/ip"
+    - "https://icanhazip.com"
+  
+preflight_checks:
+  enable_startup_checks: true
+  block_on_errors: true
+  allow_warning_override: true
+  
+resource_tagging:
+  enable_comprehensive_tags: true
+  project_identifier: "lambdalabs"
+  auto_cleanup_tag: true
