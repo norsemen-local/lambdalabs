@@ -20,30 +20,30 @@ This lab demonstrates a realistic attack progression exploiting common AWS misco
 │   Struts2 App         │    🎯 **Goal**: Code execution via file upload
 │   Port 8080           │
 └───────────┬───────────┘
-           │
-           │ Upload malicious JSP shell
-           │
-           ▼
+            │
+            │ Upload malicious JSP shell
+            │
+            ▼
 ┌───────────────────────┐
 │  🔐 CREDENTIAL ACCESS │
 │                       │    📍 **Weak Point**: EC2 Metadata Service
 │   EC2 Instance        │    🎯 **Goal**: Extract IAM role credentials
 │   (Web Shell)         │
 └───────────┬───────────┘
-           │
-           │ curl 169.254.169.254/latest/meta-data/iam/...
-           │
-           ▼
+            │
+            │ curl 169.254.169.254/latest/meta-data/iam/...
+            │
+            ▼
 ┌───────────────────────┐
 │  ⚙️ LAMBDA ESCALATION │
 │                       │    📍 **Weak Point**: iam:PassRole permission
 │   Lambda Creation     │    🎯 **Goal**: Assume higher-privilege role
 │   (Higher Role)       │
 └───────────┬───────────┘
-           │
-           │ Create Lambda with DevTeam-Group-Role
-           │
-           ▼
+            │
+            │ Create Lambda with DevTeam-Group-Role
+            │ 
+            ▼
 ┌───────────────────────┐
 │  📁 DATA EXFILTRATION │
 │                       │    📍 **Weak Point**: Overprivileged S3 access
