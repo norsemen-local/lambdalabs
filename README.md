@@ -15,30 +15,30 @@ This lab demonstrates a realistic attack progression exploiting common AWS misco
 
 ```
 ┌───────────────────────┐
-│  🌐 WEB EXPLOITATION   │
-│                      │    📍 **Weak Point**: Struts2 CVE-2017-5638
-│   Struts2 App        │    🎯 **Goal**: Code execution via file upload
-│   Port 8080          │
+│  🌐 WEB EXPLOITATION  │
+│                       │    📍 **Weak Point**: Struts2 CVE-2017-5638
+│   Struts2 App         │    🎯 **Goal**: Code execution via file upload
+│   Port 8080           │
 └───────────┬───────────┘
            │
            │ Upload malicious JSP shell
            │
            ▼
 ┌───────────────────────┐
-│  🔐 CREDENTIAL ACCESS   │
-│                      │    📍 **Weak Point**: EC2 Metadata Service
-│   EC2 Instance       │    🎯 **Goal**: Extract IAM role credentials
-│   (Web Shell)        │
+│  🔐 CREDENTIAL ACCESS │
+│                       │    📍 **Weak Point**: EC2 Metadata Service
+│   EC2 Instance        │    🎯 **Goal**: Extract IAM role credentials
+│   (Web Shell)         │
 └───────────┬───────────┘
            │
            │ curl 169.254.169.254/latest/meta-data/iam/...
            │
            ▼
 ┌───────────────────────┐
-│  ⚙️ LAMBDA ESCALATION  │
-│                      │    📍 **Weak Point**: iam:PassRole permission
-│   Lambda Creation    │    🎯 **Goal**: Assume higher-privilege role
-│   (Higher Role)      │
+│  ⚙️ LAMBDA ESCALATION │
+│                       │    📍 **Weak Point**: iam:PassRole permission
+│   Lambda Creation     │    🎯 **Goal**: Assume higher-privilege role
+│   (Higher Role)       │
 └───────────┬───────────┘
            │
            │ Create Lambda with DevTeam-Group-Role
@@ -46,9 +46,9 @@ This lab demonstrates a realistic attack progression exploiting common AWS misco
            ▼
 ┌───────────────────────┐
 │  📁 DATA EXFILTRATION │
-│                      │    📍 **Weak Point**: Overprivileged S3 access
-│   S3 Buckets Access  │    🎯 **Goal**: Extract sensitive data
-│   (Sensitive Data)   │
+│                       │    📍 **Weak Point**: Overprivileged S3 access
+│   S3 Buckets Access   │    🎯 **Goal**: Extract sensitive data
+│   (Sensitive Data)    │
 └───────────────────────┘
 ```
 
