@@ -1,0 +1,56 @@
+# Sensitive files and directories
+.ssh/
+*.pem
+*.key
+*.p12
+*.pfx
+
+# AWS credentials and config
+.aws/
+aws-credentials
+.env
+*.env
+
+# IDE/Editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Logs
+*.log
+logs/*.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+temp/
+tmp/
+
+# Configuration overrides (keep template configs)
+*local.yaml
+*local.yml
+*local.json
+settings_local.*
